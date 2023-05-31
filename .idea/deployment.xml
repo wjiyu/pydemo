@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.151.11.61:22">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.151.11.54:22 password">
     <serverData>
+      <paths name="54">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@10.151.11.54:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="root@10.151.11.61:22">
         <serverdata>
           <mappings>

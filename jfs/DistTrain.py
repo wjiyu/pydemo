@@ -1,15 +1,42 @@
+import argparse
+import os
+
 import matplotlib.pyplot as plt
 import torch
 from scipy.odr import Model
 from torch import nn
 from torch.distributed import optim
 from torch.utils.data import DataLoader, DistributedSampler
+from torchvision.models import resnet18
 from torchvision.transforms import transforms
 from torchvision.utils import make_grid
 from MyDataset import MyDataset
+import torch.nn.functional as F
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5, 1)
+        self.conv2 = nn.Conv2d(20, 50, 5, 1)
+        self.fc1 = nn.Linear(4 * 4 * 50, 500)
+        self.fc2 = nn.Linear(500, 10)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = x.view(-1, 4 * 4 * 50)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return F.log_softmax(x, dim=1)
+
 
 num_epochs = 5  # 5轮
-batch_size = 50  # 50步长
+batch_size = 32  # 50步长
 learning_rate = 0.01  # 学习率0.01
 
 
@@ -26,14 +53,14 @@ def get_dataloader(rank, world_size, root_dir, conf, transform=None, batch_size=
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
 
     # 数据加载器
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, sampler=sampler)
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=1, sampler=sampler)
 
     return dataloader
 
 
 def get_device(rank):
     """获取分布式设备"""
-    return torch.device("cuda:%d" % rank)
+    return torch.device("cuda", rank)
 
 
 def create_model():
@@ -48,58 +75,95 @@ def create_model():
     return model
 
 
-if __name__ == '__main__':
+def main(local_rank, world_size):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--local_rank", type=int, default=0, help='node rank for distributed training')
+    # parser.add_argument("--word_size", default=2, help="word size")
+    args = parser.parse_args()
+    # get local_rank from args
+    local_rank = args.local_rank
+
     transform = transforms.Compose([
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
+        # transforms.Grayscale(),
         transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
+        # transforms.Normalize(mean=[0.5], std=[0.5])
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    # dataset = MyDataset(root_dir='/mnt/jfs2/pack/imagenet_4M', conf='/home/wjy/db.conf', transform=transform)
-    #
-    # dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=False, num_workers=2)
-
-    # 分布式初始化
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
-    rank = torch.distributed.get_rank()
+    # 分布式初始化init_method='env://'  init_method='tcp://10.151.11.61:28765'
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=local_rank)
+    local_rank = torch.distributed.get_rank()
     world_size = torch.distributed.get_world_size()
 
+    torch.cuda.set_device(local_rank)
+    # device = torch.device("cuda", local_rank)
+
+    print("local_rank: ", local_rank)
+
     # 获取数据加载器和设备
-    dataloader = get_dataloader(rank, world_size, '/mnt/jfs2/pack/imagenet_4M', '/home/wjy/db.conf',
-                                transform=transform, batch_size=4)
-    device = get_device(rank)
+    dataloader = get_dataloader(local_rank, world_size, '/mnt/jfs2/pack/imagenet_4M', '/home/wjy/db.conf',
+                                transform=transform, batch_size=batch_size)
+    # device = get_device(local_rank)
 
     # 构建模型
     # Initialize the model
     # model = create_model()
-    model = Model()
+    model = resnet18().cuda()  # Net().to(DEVICE)
 
     # model = resnet18()
-    model.to(device)
+    # model.to(device)
 
     # 利用PyTorch的分布式数据并行功能，实现分布式训练
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
-
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+    # define loss and optimizer
     criterion = nn.CrossEntropyLoss()
     # 指定优化器
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    if local_rank == 0:
+        print("            =======  Training  ======= \n")
+
+    model.train()
     # 开始训练
-    for epoch in range(num_epochs):
-        for input_data in dataloader:
-            input_data = input_data.to(device)
-            output = model(input_data)
+    plt.figure()
+    for epoch in range(1, num_epochs + 1):
+        for index, images in enumerate(dataloader):
+            label = [0 for i in range(len(images))]
+            image, target = images.to(DEVICE), torch.tensor(label).to(DEVICE)
+            output = model(image)
             # 计算损失和梯度并更新模型参数
-            loss = criterion(output, input_data)
+            loss = criterion(output, target)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-    # plt.figure()
-    # for image in dataloader:
-    #     print(image)
-    #     show_images_batch(image)
-    #     plt.axis('off')
-    #     plt.ioff()
-    #     plt.show()
-    # plt.show()
+            # print(images)
+            show_images_batch(images)
+            plt.axis('off')
+            plt.ioff()
+            plt.show()
+
+            if len(images) != batch_size:
+                length = len(dataloader.dataset)
+            else:
+                length = (index + 1) * len(images)
+
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}'.format(epoch, length,
+                                                                          len(dataloader.dataset),
+                                                                          100. * length / len(dataloader.dataset),
+                                                                          loss.item()))
+        plt.show()
+
+    if local_rank == 0:
+        print("\n            =======  Training Finished  ======= \n")
+
+
+if __name__ == '__main__':
+    os.environ["MASTER_ADDR"] = "10.151.11.54"
+    os.environ["MASTER_PORT"] = "29501"
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+    world_size = 3
+    torch.multiprocessing.spawn(main, args=(world_size,), nprocs=world_size, join=True)

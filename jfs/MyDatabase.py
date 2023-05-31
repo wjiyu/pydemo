@@ -44,7 +44,6 @@ class MyDatabase:
             session2 = cursor.fetchall()
 
             hostname = socket.gethostname()
-
             def parse_json(js):
                 return json.loads(js.decode("utf-8"))
 

@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     dataset = MyDataset(root_dir='/mnt/jfs2/pack/imagenet_4M', conf='/home/wjy/db.conf', transform=transform)
 
-    dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=False, num_workers=2)
+    dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=False, num_workers=4)
 
     plt.figure()
     for image in dataloader:
