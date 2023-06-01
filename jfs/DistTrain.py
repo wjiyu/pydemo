@@ -1,9 +1,7 @@
 import argparse
 import os
-
 import matplotlib.pyplot as plt
 import torch
-from scipy.odr import Model
 from torch import nn
 from torch.distributed import optim
 from torch.utils.data import DataLoader, DistributedSampler
@@ -14,6 +12,11 @@ from MyDataset import MyDataset
 import torch.nn.functional as F
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+num_epochs = 5  # 5轮
+batch_size = 32  # 50步长
+learning_rate = 0.01  # 学习率0.01
 
 
 class Net(nn.Module):
@@ -35,9 +38,15 @@ class Net(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-num_epochs = 5  # 5轮
-batch_size = 32  # 50步长
-learning_rate = 0.01  # 学习率0.01
+def get_transform():
+    return transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        # transforms.Grayscale(),
+        transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.5], std=[0.5])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
 
 def show_images_batch(image):
@@ -75,23 +84,50 @@ def create_model():
     return model
 
 
-def main(local_rank, world_size):
+def train(rank, dataloader, model, criterion, optimizer, num_epochs=32):
+
+    print("============================  Training  ============================ \n")
+
+    model.train()
+    plt.figure()
+    for epoch in range(1, num_epochs + 1):
+        for index, images in enumerate(dataloader):
+            label = [0 for i in range(len(images))]
+            image, target = images.to(DEVICE), torch.tensor(label).to(DEVICE)
+            output = model(image)
+            loss = criterion(output, target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            print(images)
+            show_images_batch(images)
+            plt.axis('off')
+            plt.ioff()
+            plt.show()
+
+            if len(images) != batch_size:
+                length = len(dataloader.sampler)
+            else:
+                length = (index + 1) * len(images)
+
+            print('gpu: {} Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}'.format(rank, epoch, length, len(dataloader.sampler),
+                                                                          100. * length / len(dataloader.sampler),
+                                                                          loss.item()))
+        plt.show()
+
+        print("\n============================  Training Finished  ============================ \n")
+
+
+def main(rank, world_size):
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=0, help='node rank for distributed training')
-    # parser.add_argument("--word_size", default=2, help="word size")
+    # parser.add_argument("--word_size", default=1, help="word size")
     args = parser.parse_args()
     # get local_rank from args
     local_rank = args.local_rank
 
-    transform = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        # transforms.Grayscale(),
-        transforms.ToTensor(),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
-        # transforms.Normalize(mean=[0.5], std=[0.5])
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    transform = get_transform()
 
     # 分布式初始化init_method='env://'  init_method='tcp://10.151.11.61:28765'
     torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=local_rank)
@@ -109,12 +145,7 @@ def main(local_rank, world_size):
     # device = get_device(local_rank)
 
     # 构建模型
-    # Initialize the model
-    # model = create_model()
-    model = resnet18().cuda()  # Net().to(DEVICE)
-
-    # model = resnet18()
-    # model.to(device)
+    model = resnet18().cuda()
 
     # 利用PyTorch的分布式数据并行功能，实现分布式训练
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
@@ -123,47 +154,12 @@ def main(local_rank, world_size):
     # 指定优化器
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-    if local_rank == 0:
-        print("            =======  Training  ======= \n")
-
-    model.train()
-    # 开始训练
-    plt.figure()
-    for epoch in range(1, num_epochs + 1):
-        for index, images in enumerate(dataloader):
-            label = [0 for i in range(len(images))]
-            image, target = images.to(DEVICE), torch.tensor(label).to(DEVICE)
-            output = model(image)
-            # 计算损失和梯度并更新模型参数
-            loss = criterion(output, target)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # print(images)
-            show_images_batch(images)
-            plt.axis('off')
-            plt.ioff()
-            plt.show()
-
-            if len(images) != batch_size:
-                length = len(dataloader.dataset)
-            else:
-                length = (index + 1) * len(images)
-
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}'.format(epoch, length,
-                                                                          len(dataloader.dataset),
-                                                                          100. * length / len(dataloader.dataset),
-                                                                          loss.item()))
-        plt.show()
-
-    if local_rank == 0:
-        print("\n            =======  Training Finished  ======= \n")
+    train(local_rank, dataloader, model, criterion, optimizer, num_epochs)
 
 
 if __name__ == '__main__':
     os.environ["MASTER_ADDR"] = "10.151.11.54"
-    os.environ["MASTER_PORT"] = "29501"
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-    world_size = 3
+    # os.environ["MASTER_PORT"] = "12225"
+    world_size = 1
+    # main(0, world_size)
     torch.multiprocessing.spawn(main, args=(world_size,), nprocs=world_size, join=True)
