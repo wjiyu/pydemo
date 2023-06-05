@@ -25,9 +25,10 @@ class MyDataset(Dataset):
         return self.size
 
     def __getitem__(self, idx):
-        chunk_path = self.mount + "/pack/" + self.file_maps[self.files[idx]]
+        chunk_path = self.mount + "/pack/" + os.path.basename(self.root_dir) + os.path.sep \
+                     + self.file_maps[self.files[idx]]
         if not os.path.isfile(chunk_path):
-            print(chunk_path + ' does not exist!')
+            print(chunk_path + ' mount path does not exist!')
             return None
 
         image = self.myShuffles.extract_image(chunk_path, self.files[idx])

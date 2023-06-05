@@ -139,7 +139,7 @@ def main(rank, world_size):
 
     print("local_rank: ", local_rank)
 
-    # 获取数据加载器和设备
+    # 获取数据加载器
     dataloader = get_dataloader(local_rank, world_size, '/mnt/jfs2/pack/imagenet_4M', '/home/wjy/db.conf',
                                 transform=transform, batch_size=batch_size)
     # device = get_device(local_rank)
@@ -152,7 +152,7 @@ def main(rank, world_size):
     # define loss and optimizer
     criterion = nn.CrossEntropyLoss()
     # 指定优化器
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     train(local_rank, dataloader, model, criterion, optimizer, num_epochs)
 
