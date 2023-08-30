@@ -5,17 +5,18 @@ import torch
 from torch import nn
 from torch.distributed import optim
 from torch.utils.data import DataLoader, DistributedSampler
+from torchvision import datasets
 from torchvision.models import resnet18
 from torchvision.transforms import transforms
 from torchvision.utils import make_grid
-from MyDataset import MyDataset
+from CacheFsDataset import MyDataset
 import torch.nn.functional as F
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-num_epochs = 5  # 5轮
-batch_size = 32  # 50步长
+num_epochs = 1  # 5轮
+batch_size = 10000  # 50步长
 learning_rate = 0.01  # 学习率0.01
 
 
@@ -56,6 +57,7 @@ def show_images_batch(image):
 
 def get_dataloader(rank, world_size, root_dir, conf, transform=None, batch_size=32):
     """获取分布式数据集"""
+    # dataset = datasets.ImageFolder(root=root_dir, transform=transform)
     dataset = MyDataset(root_dir, conf, transform=transform)
 
     # 分布式采样器
@@ -89,32 +91,36 @@ def train(rank, dataloader, model, criterion, optimizer, num_epochs=32):
     print("============================  Training  ============================ \n")
 
     model.train()
-    plt.figure()
+    # plt.figure()
     for epoch in range(1, num_epochs + 1):
         for index, images in enumerate(dataloader):
-            label = [0 for i in range(len(images))]
-            image, target = images.to(DEVICE), torch.tensor(label).to(DEVICE)
-            output = model(image)
-            loss = criterion(output, target)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            # label = [0 for i in range(len(images))]
+            # image, target = images.to(DEVICE), torch.tensor(label).to(DEVICE)
+            # output = model(image)
+            # loss = criterion(output, target)
+            # optimizer.zero_grad()
+            # loss.backward()
+            # optimizer.step()
 
-            print(images)
-            show_images_batch(images)
-            plt.axis('off')
-            plt.ioff()
-            plt.show()
+            # print(images)
+            # show_images_batch(images)
+            # plt.axis('off')
+            # plt.ioff()
+            # plt.show()
 
             if len(images) != batch_size:
                 length = len(dataloader.sampler)
             else:
                 length = (index + 1) * len(images)
 
-            print('gpu: {} Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}'.format(rank, epoch, length, len(dataloader.sampler),
-                                                                          100. * length / len(dataloader.sampler),
-                                                                          loss.item()))
-        plt.show()
+            print('gpu: {} Train Epoch: {} [{}/{} ({:.0f}%)]'.format(rank, epoch, length,
+                                                                                  len(dataloader.sampler),
+                                                                                  100. * length / len(
+                                                                                      dataloader.sampler)))
+
+            # print('gpu: {} Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}'.format(rank, epoch, length, len(dataloader.sampler),
+            #                                                               100. * length / len(dataloader.sampler), loss.item()))
+        # plt.show()
 
         print("\n============================  Training Finished  ============================ \n")
 
@@ -140,7 +146,7 @@ def main(rank, world_size):
     print("local_rank: ", local_rank)
 
     # 获取数据加载器
-    dataloader = get_dataloader(local_rank, world_size, '/mnt/jfs2/pack/imagenet_4M', '/home/wjy/db.conf',
+    dataloader = get_dataloader(local_rank, world_size, '/data/beeond/data/imagenet/imagenet_100G', '/home/wjy/db.conf',
                                 transform=transform, batch_size=batch_size)
     # device = get_device(local_rank)
 
@@ -160,6 +166,6 @@ def main(rank, world_size):
 if __name__ == '__main__':
     os.environ["MASTER_ADDR"] = "10.151.11.54"
     # os.environ["MASTER_PORT"] = "12225"
-    world_size = 1
-    # main(0, world_size)
-    torch.multiprocessing.spawn(main, args=(world_size,), nprocs=world_size, join=True)
+    world_size = 3
+    main(0, world_size)
+    # torch.multiprocessing.spawn(main, args=(world_size,), nprocs=world_size, join=True)

@@ -31,7 +31,7 @@ file_contents = tar.extractfile("imagenet_4M/imagenet_1/ILSVRC2012_test_00000009
 print(file_contents)
 fp = TarIO.TarIO("/mnt/jfs2/pack/imagenet_4M_2", "imagenet_4M/imagenet_1/ILSVRC2012_test_00000009.JPEG")
 
-im = Image.open(fp) #("/mnt/jfs/imagenet_4M/ILSVRC2012_test_00000009.JPEG")
+im = Image.open(fp) #("/mnt/cachefs/imagenet_4M/ILSVRC2012_test_00000009.JPEG")
 # print(im)
 # plt.imshow(im)
 #从Image类转化为numpy array
