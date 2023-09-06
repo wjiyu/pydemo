@@ -100,11 +100,18 @@ if __name__ == '__main__':
     # print(next(gen))  # 输出: 1
     # print(next(gen))  # 输出: 2
     # # print(next(gen))  # 输出: 3
-    start = time.time()
-    myShuffles = CacheFsShuffle("/mnt/cachefs/pack/imagenet_100W_4K", '/home/wjy/db.conf', 4)
-    files, maps = myShuffles.shuffle()
-    print(len(files))
-    # print(maps)
-    print("Execution time:", time.time() - start, "seconds")
+
+
+    # start = time.time()
+    # myShuffles = CacheFsShuffle("/mnt/cachefs/pack/imagenet_100W_4K", '/home/wjy/db.conf', 4)
+    # files, maps = myShuffles.shuffle()
+    # print(len(files))
+    # # print(maps)
+    # print("Execution time:", time.time() - start, "seconds")
+
+    index = [1,2,3]
+    dataset=[1,2,3,4]
+    data = [dataset[idx] for idx in index]
+    print(data)
 
 

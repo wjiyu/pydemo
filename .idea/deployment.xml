@@ -12,14 +12,14 @@
       <paths name="root@10.151.11.54:22 password (2)">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/wjy/test/train" local="$PROJECT_DIR$" />
+            <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="root@10.151.11.54:22 password (3)">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/wjy/test/train" local="$PROJECT_DIR$" />
+            <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

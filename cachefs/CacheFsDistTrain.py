@@ -9,7 +9,7 @@ from torchvision import datasets
 from torchvision.models import resnet18
 from torchvision.transforms import transforms
 from torchvision.utils import make_grid
-from CacheFsDataset import MyDataset
+from CacheFsDataset import CacheFsDataset
 import torch.nn.functional as F
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,7 +58,7 @@ def show_images_batch(image):
 def get_dataloader(rank, world_size, root_dir, conf, transform=None, batch_size=32):
     """获取分布式数据集"""
     # dataset = datasets.ImageFolder(root=root_dir, transform=transform)
-    dataset = MyDataset(root_dir, conf, transform=transform)
+    dataset = CacheFsDataset(root_dir, conf, transform=transform)
 
     # 分布式采样器
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)

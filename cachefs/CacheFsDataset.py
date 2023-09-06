@@ -2,24 +2,23 @@ import glob
 import os
 import tarfile
 
+from PIL import Image, TarIO
+from skimage.color import gray2rgb
 from torch.utils.data import Dataset
 from CacheFsShuffle import CacheFsShuffle
 from CacheFsDatabase import CacheFsDatabase
+import torchvision.datasets as datasets
 
-
-class MyDataset(Dataset):
+class CacheFsDataset(Dataset):
     def __init__(self, root_dir, conf, transform=None):
         self.root_dir = root_dir
         self.transform = transform
+        self.cachefs = CacheFsShuffle(root_dir, conf, 4)
+        self.shuffle_files, self.file_maps = self.cachefs.shuffle()
+        self.size = len(self.shuffle_files)
+        database = CacheFsDatabase(conf)
+        self.mount = database.query_mount()
 
-        self.myShuffles = CacheFsShuffle(root_dir, conf, 4)
-        shuffle_files, file_maps = self.get_tar_fils() #self.myShuffles.shuffle()
-        self.files = shuffle_files
-        self.size = len(self.files)
-        self.file_maps = file_maps
-
-        my_database = CacheFsDatabase(conf)
-        self.mount = my_database.query_mount()
 
     def get_tar_fils(self):
         # specify the directory containing tar files
@@ -44,19 +43,61 @@ class MyDataset(Dataset):
         return self.size
 
     def __getitem__(self, idx):
-        # chunk_path = self.mount + "/pack/" + os.path.basename(self.root_dir) + os.path.sep \
-        #              + self.file_maps[self.files[idx]]
+        chunk_path = self.mount + "/pack/" + os.path.basename(self.root_dir) + os.path.sep \
+                     + self.file_maps.get(self.shuffle_files[idx])
 
-        chunk_path = "/data/beeond/data/imagenet/" + os.path.basename(self.root_dir) + os.path.sep \
-                     + self.file_maps[self.files[idx]]
+        # chunk_path = "/data/beeond/data/imagenet/" + os.path.basename(self.root_dir) + os.path.sep \
+        #              + self.file_maps.get(self.files[idx])
+
         if not os.path.isfile(chunk_path):
             print(chunk_path + ' mount path does not exist!')
             return None
 
-        image = self.myShuffles.extract_image(chunk_path, self.files[idx])
-        if self.transform:
-            image = self.transform(image)
+        try:
+            with tarfile.open(chunk_path, 'r') as tar:
+                # for file in tar.getmembers():
+                #     print(file)
+                #     print(tar.extractfile(file).read())
+                # print(tar.getmember(self.shuffle_files[idx]))
+                im = tar.extractfile(tar.getmember(self.shuffle_files[idx])).read()
+                # print(im)
+                image =  datasets.folder.default_loader(im)
+                print(image)
+                if self.transform:
+                    image = self.transform(image)
 
-        return image
+                # print(image)
+                return image
+                # if im.mode == 'L':
+                #     im = gray2rgb(im)
+                # return im
+        except Exception as e:
+            print("exception: ", str(e), chunk_path, self.shuffle_files[idx])
+            pass
+
+        # image = self.cachefs.extract_image(chunk_path, self.shuffle_files[idx])
 
 
+
+
+
+class TarImageNetDataset(datasets.DatasetFolder):
+    def __init__(self, root, transform=None, target_transform=None,
+                 loader=default_loader, is_valid_file=None):
+        super(TarImageNetDataset, self).__init__(root, loader, None,
+                                                  transform=transform,
+                                                  target_transform=target_transform,
+                                                  is_valid_file=is_valid_file)
+        self.tar = tarfile.open(root, 'r')
+
+    def __getitem__(self, index):
+        tarinfo = self.samples[index]
+        fileobj = self.tar.extractfile(tarinfo)
+        img = self.loader(fileobj)
+        if self.transform is not None:
+            img = self.transform(img)
+        target = self.target_transform(tarinfo[1])
+        return img, target
+
+    def __len__(self):
+        return len(self.samples)

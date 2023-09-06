@@ -22,12 +22,13 @@ class ChunkStruct:
 
 class ChunkInfo:
     def __init__(self):
-        #chunkid-files map
+        # chunkid-files map
         self.chunk_maps = {}
         # self.files = []
-        #chunk name-files map
+        # chunk file-name map
         self.name_maps = {}
         self.chunk_ids = []
+        self.chunk_names = []
         self.lock = threading.Lock()
 
 
@@ -113,19 +114,22 @@ class CacheFsShuffle:
         # file_list = []
         chunk_maps = {}
         name_maps = {}
+        # names = []
         for row in result:
             decompress_files = zlib.decompress(row[1]).decode("utf-8")  # row[1].decode("utf-8")
             files = [str(s) for s in json.loads(decompress_files)]
             # file_list.extend(files)
             chunk_maps[row[0]] = files
             name = slice_maps.get(row[0])
-            name_maps.update({file:name for file in files})
+            # names.append(name)
+            name_maps.update({file: name for file in files})
 
         with info.lock:
             # info.files.extend(file_list)
             info.chunk_maps.update(chunk_maps)
             info.name_maps.update(name_maps)
             info.chunk_ids.extend(chunk_ids)
+            # info.chunk_names.extend(names)
 
         # info.lock.acquire()
         # try:
@@ -184,11 +188,15 @@ class CacheFsShuffle:
         :param fileName: 目标图像文件名
         :return: Image对象
         """
-        with TarIO.TarIO(path, file_name) as fp:
-            im = Image.open(fp).convert("RGB")
-            if im.mode == 'L':
-                im = gray2rgb(im)
-        return im
+        try:
+            with TarIO.TarIO(path, file_name) as fp:
+                im = Image.open(fp).convert("RGB")
+                if im.mode == 'L':
+                    im = gray2rgb(im)
+                return im
+        except Exception as e:
+            print("exception: ", str(e), path, file_name)
+            pass
 
 # def extractTarFile(self, tarPath):
 #     myDatabase = MyDatabase(self.conf)
@@ -200,3 +208,12 @@ class CacheFsShuffle:
 #             tar = tarfile.open(mount + "/pack/" + tar_name, "r:")
 #         print(tar.extractfile(i).read())
 #         return tar.extractfile(i).read()
+
+
+# from torchvision.datasets.utils import extract_archive
+#
+# # 提取tar包中的数据
+# extract_archive('your_tar_file.tar')
+#
+# # 处理提取的数据
+# # ...

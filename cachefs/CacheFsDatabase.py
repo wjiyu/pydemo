@@ -86,7 +86,7 @@ class CacheFsDatabase:
         :doc-author: Trelent
         """
         sql = "SELECT info FROM jfs_session2"
-        with self.pool.connection() as conn, conn.cursor(buffered=True) as cursor:
+        with self.pool.connection() as conn, conn.cursor() as cursor:
             cursor.execute(sql)
             session2 = cursor.fetchall()
             hostname = socket.gethostname()
