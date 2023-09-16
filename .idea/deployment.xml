@@ -1,22 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.151.11.54:22 password (3)">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.151.11.54:22 password (4)">
     <serverData>
-      <paths name="root@10.151.11.54:22 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/wjy/test/train" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="root@10.151.11.54:22 password (2)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="root@10.151.11.54:22 password (3)">
+      <paths name="root@10.151.11.54:22 password (4)">
         <serverdata>
           <mappings>
             <mapping deploy="/home/wjy/train" local="$PROJECT_DIR$" />

@@ -9,6 +9,9 @@ from CacheFsShuffle import CacheFsShuffle
 from CacheFsDatabase import CacheFsDatabase
 import torchvision.datasets as datasets
 
+from cachefs.CacheFsTarfile import CacheFsTarfile
+
+
 class CacheFsDataset(Dataset):
     def __init__(self, root_dir, conf, transform=None):
         self.root_dir = root_dir
@@ -54,23 +57,23 @@ class CacheFsDataset(Dataset):
             return None
 
         try:
-            with tarfile.open(chunk_path, 'r') as tar:
+
+            # with TarIO.TarIO(chunk_path, self.shuffle_files[idx]) as fp, Image.open(fp).convert("RGB") as image:
+            #     if self.transform is not None:
+            #         image = self.transform(image)
+            #     return image
+
+            with CacheFsTarfile.open(chunk_path, 'r') as tar:
                 # for file in tar.getmembers():
                 #     print(file)
                 #     print(tar.extractfile(file).read())
                 # print(tar.getmember(self.shuffle_files[idx]))
-                im = tar.extractfile(tar.getmember(self.shuffle_files[idx])).read()
-                # print(im)
-                image =  datasets.folder.default_loader(im)
+                im = tar.extractfile(self.shuffle_files[idx])
+                image =  Image.open(im)
                 print(image)
                 if self.transform:
                     image = self.transform(image)
-
-                # print(image)
                 return image
-                # if im.mode == 'L':
-                #     im = gray2rgb(im)
-                # return im
         except Exception as e:
             print("exception: ", str(e), chunk_path, self.shuffle_files[idx])
             pass
@@ -81,23 +84,23 @@ class CacheFsDataset(Dataset):
 
 
 
-class TarImageNetDataset(datasets.DatasetFolder):
-    def __init__(self, root, transform=None, target_transform=None,
-                 loader=default_loader, is_valid_file=None):
-        super(TarImageNetDataset, self).__init__(root, loader, None,
-                                                  transform=transform,
-                                                  target_transform=target_transform,
-                                                  is_valid_file=is_valid_file)
-        self.tar = tarfile.open(root, 'r')
-
-    def __getitem__(self, index):
-        tarinfo = self.samples[index]
-        fileobj = self.tar.extractfile(tarinfo)
-        img = self.loader(fileobj)
-        if self.transform is not None:
-            img = self.transform(img)
-        target = self.target_transform(tarinfo[1])
-        return img, target
-
-    def __len__(self):
-        return len(self.samples)
+# class TarImageNetDataset(datasets.DatasetFolder):
+#     def __init__(self, root, transform=None, target_transform=None,
+#                  loader=default_loader, is_valid_file=None):
+#         super(TarImageNetDataset, self).__init__(root, loader, None,
+#                                                   transform=transform,
+#                                                   target_transform=target_transform,
+#                                                   is_valid_file=is_valid_file)
+#         self.tar = tarfile.open(root, 'r')
+#
+#     def __getitem__(self, index):
+#         tarinfo = self.samples[index]
+#         fileobj = self.tar.extractfile(tarinfo)
+#         img = self.loader(fileobj)
+#         if self.transform is not None:
+#             img = self.transform(img)
+#         target = self.target_transform(tarinfo[1])
+#         return img, target
+#
+#     def __len__(self):
+#         return len(self.samples)
