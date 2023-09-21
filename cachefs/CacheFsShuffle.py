@@ -31,9 +31,12 @@ class ChunkInfo:
         self.chunk_names = []
         self.lock = threading.Lock()
 
+        #chunk file numbers
+        self.numbers = 0
+
 
 class CacheFsShuffle:
-    def __init__(self, path, conf, group_size=4, work=50):
+    def __init__(self, path, conf, group_size=2, work=50):
         """
         初始化函数，对类字段进行初始化
         :param path: 数据路径
@@ -124,6 +127,9 @@ class CacheFsShuffle:
             # names.append(name)
             name_maps.update({file: name for file in files})
 
+            if info.numbers == 0:
+                info.numbers = len(files)
+
         with info.lock:
             # info.files.extend(file_list)
             info.chunk_maps.update(chunk_maps)
@@ -149,6 +155,12 @@ class CacheFsShuffle:
         #
         # result = self.cachefs_database.fetch(os.path.basename(self.path), sql)
         info = self.query_files()
+        # adaptive adjustment of group size
+        if info.numbers > 200:
+            self.group_size = 2
+        else:
+            self.group_size = 4
+
         self.file_maps = info.name_maps
         # chunk_ids = []
         # maps = {}

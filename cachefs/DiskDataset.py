@@ -5,7 +5,7 @@ from torchvision.transforms import transforms
 from torchvision.utils import make_grid
 import time
 
-num_epochs = 5
+num_epochs = 2
 
 def show_images_batch(image):
     grid = make_grid(image)
@@ -30,9 +30,9 @@ if __name__ == '__main__':
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    dataset = ImageFolder('/mnt/imagenet_4M', transform=transform)
+    dataset = ImageFolder('/root/wjy/imagenet_100W_128K', transform=transform)
 
-    dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=True, num_workers=3)
+    dataloader = DataLoader(dataset=dataset, batch_size=128, shuffle=False, num_workers=16)
 
     for epoch in range(1, num_epochs + 1):
         # plt.figure()

@@ -4,6 +4,7 @@ import os
 import tarfile
 import threading
 import random
+import io
 
 import torchvision
 from PIL import Image, TarIO
@@ -106,13 +107,13 @@ class FolderDataset(Dataset):
         tar.close()
 
     def extract_stream(self, key, files, index_maps, data):
-        datapipe = FileOpener([key], mode="rb").load_from_tar().filter(filter_fn=lambda file_name: file_name[0] in files)
+        datapipe = FileOpener([key], mode="rb").load_from_tar().filter(
+            filter_fn=lambda file_name: file_name[0] in files)
         for dp in datapipe:
             with Image.open(dp[1]).convert("RGB") as image:
                 if self.transform is not None:
                     image = self.transform(image)
                 data[index_maps.get(dp[0])] = image
-
 
     def tar_files(self, chunk_path, file, index_maps, data):
         with TarIO.TarIO(chunk_path, file) as fp, Image.open(fp).convert("RGB") as image:
@@ -122,15 +123,33 @@ class FolderDataset(Dataset):
 
     def load_image(self, tar, fp, file, index, datas, lock):
         try:
-            with fp as fp, Image.open(fp).convert("RGB") as image:
-                if self.transform is not None:
-                    image = self.transform(image)
-                # with lock:
-                #     datas[index_maps.get(file)] = image
-                return index, image
+            with lock:
+                with fp as fp, Image.open(fp).convert("RGB") as image:
+                    if self.transform is not None:
+                        image = self.transform(image)
+                    # with lock:
+                    datas[index] = image
+                    return file, image
+        except Exception as e:
+            print("read exception: ", e)
         finally:
             del tar.member_maps[file]
 
+    def load_images(self, tar, files, index_maps, datas):
+        try:
+            file_objects = tar.extractfiles(files)
+            for file, obj in file_objects.items():
+                ###############高并发最优方案####################
+                with obj as fp, Image.open(fp).convert("RGB") as image:
+                    if self.transform is not None:
+                        image = self.transform(image)
+                    datas[index_maps.get(file)] = image
+            tar.removemember(files)
+        except Exception as e:
+            print("read exception: ", e)
+        finally:
+            if not tar.member_maps:
+                tar.close()
 
 
     def __getitems__(self, batch_idx):
@@ -158,33 +177,54 @@ class FolderDataset(Dataset):
             index_maps[file] = index
 
         try:
-            lock = threading.Lock()
+            # lock = threading.Lock()
             datas = [0] * len(batch_idx)
             with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+                thread_futures = []
                 for key, values in chunk_file_maps.items():
                     if key not in self.chunk_stream:
                         with self.lock:
                             self.chunk_stream[key] = CacheFsTarfile.open(key)
 
                     tar = self.chunk_stream.get(key)
-                    file_objects = tar.extractfiles(values)
-                    thread_futures = []
-                    for file, obj in file_objects.items():
-                        # thread_future = executor.submit(self.load_image, tar, obj, file, index_maps.get(file), datas, lock)
-                        # thread_futures.append(thread_future)
-                        with obj as fp, Image.open(fp).convert("RGB") as image:
-                            if self.transform is not None:
-                                image = self.transform(image)
-                            datas[index_maps.get(file)] = image
-                        del tar.member_maps[file]
-                    # concurrent.futures.wait(thread_futures)
-                    # for thread_future in thread_futures:
-                    #     if thread_future.done():
-                    #         index, image = thread_future.result()
-                    #         datas[index] = image
 
-                    if not tar.member_maps:
-                        tar.close()
+                    thread_future = executor.submit(self.load_images, tar, values, index_maps, datas)
+                    thread_futures.append(thread_future)
+
+
+                    # file_objects = tar.extractfiles(values)
+
+                    # for file, obj in file_objects.items():
+                    #     thread_future = executor.submit(self.load_image, tar, obj, file, index_maps.get(file), datas, lock)
+                    #     thread_futures.append(thread_future)
+                        ###############最优方案####################
+                        # with obj as fp, Image.open(fp).convert("RGB") as image:
+                        #     if self.transform is not None:
+                        #         image = self.transform(image)
+                        #     datas[index_maps.get(file)] = image
+                        # del tar.member_maps[file]
+                        #########################################
+
+                        #################多线程高并发方案#######################
+
+
+                concurrent.futures.wait(thread_futures)
+
+                    # for thread_future in dones:  # concurrent.futures.as_completed(thread_futures):
+                    #     file, image = thread_future.result()
+                    #     # print("image: ", image)
+                    #     datas[index_maps.get(file)] = image
+                    #     try:
+                    #         tar.delete(file)
+                    #     except Exception as e:
+                    #         print("future e: ", e, file)
+                    #         raise e
+                    ###########################################################################
+                    # if not tar.member_maps:
+                    #     tar.close()
+
+                    ####################多线程高并发方案2#######################################################
+
                     # thread_future = self.thread_pool.submit(self.extract_files, tar, values, index_maps, data)
                     # thread_future.add_done_callback(lambda f, index=i: update_result(index, f.result()))
                     # thread_futures.append(thread_future)

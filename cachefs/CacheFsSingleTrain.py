@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     try:
         start = time.time()
-        dataset = FolderDataset(root_dir='/mnt/jfs/pack/imagenet_4M', conf='/home/wjy/db.conf', transform=transform)
+        dataset = CacheFsDataset(root_dir='/mnt/jfs/pack/imagenet_100W_128K', conf='/home/wjy/db.conf', transform=transform)
         dataloader = DataLoader(dataset=dataset, batch_size=128, shuffle=False, num_workers=16)
 
         for epoch in range(1, num_epochs + 1):
@@ -47,7 +47,3 @@ if __name__ == '__main__':
             start = time.time()
     except Exception as e:
         print("except: ", str(e))
-    finally:
-        pass
-        # dataset.thread_pool.shutdown()
-        # shutil.rmtree("/var/jfsCache/imagenet_100W_4K")

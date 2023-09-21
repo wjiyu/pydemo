@@ -9,7 +9,7 @@ from torchvision import datasets
 from torchvision.models import resnet18
 from torchvision.transforms import transforms
 from torchvision.utils import make_grid
-from CacheFsDataset import CacheFsDataset
+from CacheFsDatasetOld import CacheFsDataset
 import torch.nn.functional as F
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

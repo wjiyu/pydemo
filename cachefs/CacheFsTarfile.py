@@ -1,10 +1,12 @@
 import tarfile
+import threading
+import io
 
 class CacheFsTarfile(tarfile.TarFile):
-
     OPEN_METH = {
-        "tar": "taropen"   # uncompressed tar
+        "tar": "taropen"  # uncompressed tar
     }
+
     def __init__(self, name=None, mode="r", fileobj=None, format=None,
                  tarinfo=None, dereference=None, ignore_zeros=None, encoding=None,
                  errors="surrogateescape", pax_headers=None, debug=None,
@@ -12,8 +14,10 @@ class CacheFsTarfile(tarfile.TarFile):
 
         self.member_maps = {}
 
+        # self.lock = threading.Lock()
+
         super().__init__(name, mode, fileobj, format, tarinfo, dereference, ignore_zeros, encoding,
-                                             errors, pax_headers, debug, errorlevel, copybufsize)
+                         errors, pax_headers, debug, errorlevel, copybufsize)
 
         # if mode in "r":
         #     self.getmembers()
@@ -104,11 +108,13 @@ class CacheFsTarfile(tarfile.TarFile):
             return None
 
     def extractfiles(self, members):
+
         self._check("r")
 
         member_maps = self.getmembermaps()
 
         if isinstance(members, list):
+            # with self.lock:
             tarinfos = {member: member_maps.get(member) for member in members}
         elif isinstance(members, str):
             tarinfos = self.member_maps.get(members)
@@ -119,7 +125,7 @@ class CacheFsTarfile(tarfile.TarFile):
         for member, tarinfo in tarinfos.items():
             if tarinfo.isreg() or tarinfo.type not in tarfile.SUPPORTED_TYPES:
                 # Members with unknown types are treated as regular files.
-                fileobjects[member] = self.fileobject(self, tarinfo)
+                fileobjects[member] = io.BytesIO(self.fileobject(self, tarinfo).read())
 
             elif tarinfo.islnk() or tarinfo.issym():
                 if isinstance(self.fileobj, tarfile._Stream):
@@ -135,7 +141,6 @@ class CacheFsTarfile(tarfile.TarFile):
                 # blkdev, etc.), return None instead of a file object.
                 return None
         return fileobjects
-
 
     def next(self):
         """Return the next member of the archive as a TarInfo object, when
@@ -183,6 +188,7 @@ class CacheFsTarfile(tarfile.TarFile):
 
         if tarinfo is not None:
             self.members.append(tarinfo)
+            # with self.lock:
             self.member_maps[tarinfo.name] = tarinfo
         else:
             self._loaded = True
@@ -226,4 +232,18 @@ class CacheFsTarfile(tarfile.TarFile):
         if len(mode) > 1 or mode not in "raw":
             raise ValueError("mode must be 'r', 'a' or 'w'")
         return cls(name, mode, fileobj, **kwargs)
+
+    def delete(self, file):
+        # with self.lock:
+        if file in self.member_maps:
+            del self.member_maps[file]
+
+    def removemember(self, member):
+        if isinstance(member, list):
+            for m in member:
+                if m in self.member_maps:
+                    del self.member_maps[m]
+        else:
+            if member in self.member_maps:
+                del self.member_maps[member]
 
