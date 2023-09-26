@@ -3,6 +3,8 @@ import threading
 from PIL import ContainerIO
 import io
 
+from cachefs.CacheFsChunkFile import CacheFsChunkFile
+
 
 class CacheFsChunkIO(ContainerIO.ContainerIO):
 
@@ -55,12 +57,12 @@ class CacheFsChunkIO(ContainerIO.ContainerIO):
                 if name in files:
                     # Open region
                     # super().__init__(self.fh, self.fh.tell(), size)
-                    self.members[name] = ContainerIO.ContainerIO(self.fh, self.fh.tell(), size)
+                    self.members[name] = CacheFsChunkFile(self.fh, self.fh.tell(), size)
 
                 if len(self.members.keys()) == len(files):
                     break
             else:
-                self.members[name] = ContainerIO.ContainerIO(self.fh, self.fh.tell(), size)
+                self.members[name] = CacheFsChunkFile(self.fh, self.fh.tell(), size)
 
             self.fh.seek((size + 511) & (~511), io.SEEK_CUR)
 

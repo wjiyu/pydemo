@@ -32,7 +32,7 @@ from torchvision.transforms.functional import to_tensor, to_pil_image
 from torchdata.datapipes.iter import FileOpener
 import time
 
-from cachefs.CacheFsContainerIO import CacheFsContainerIO
+from cachefs.CacheFsChunkFile import CacheFsChunkFile
 from cachefs.CacheFsChunkIO import CacheFsChunkIO
 from cachefs.CacheFsTarfile import CacheFsTarfile
 
@@ -40,7 +40,7 @@ from cachefs.CacheFsTarfile import CacheFsTarfile
 # import accimage
 
 
-class CacheFsDataset(Dataset):
+class CacheFsImageDataset(Dataset):
     """
     cachefs 自定义dataset
     :param root_dir: 数据路径

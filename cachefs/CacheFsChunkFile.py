@@ -18,7 +18,7 @@
 import io
 
 
-class CacheFsContainerIO:
+class CacheFsChunkFile:
     """
     A file object that provides read access to a part of an existing
     file (for example a TAR file).

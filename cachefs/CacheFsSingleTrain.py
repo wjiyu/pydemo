@@ -6,7 +6,7 @@ from torchvision.transforms import transforms
 from torchvision.utils import make_grid
 import time
 
-from cachefs.CacheFsDataset import CacheFsDataset
+from cachefs.CacheFsImageDataset import CacheFsImageDataset
 # from cachefs.DecompressDataset import DecompressDataset
 from cachefs.FolderDataset import FolderDataset
 
@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     try:
         start = time.time()
-        dataset = CacheFsDataset(root_dir='/mnt/jfs/pack/imagenet_100W_128K', conf='/home/wjy/db.conf', transform=transform)
+        dataset = CacheFsImageDataset(root_dir='/mnt/jfs/pack/imagenet_1000W_4KB', conf='/home/wjy/db.conf', transform=transform)
         dataloader = DataLoader(dataset=dataset, batch_size=128, shuffle=False, num_workers=16)
 
         for epoch in range(1, num_epochs + 1):

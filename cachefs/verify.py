@@ -15,7 +15,7 @@ from torchvision.utils import make_grid
 from torch.utils.data.datapipes.utils.common import get_file_binaries_from_pathnames
 from torchdata.datapipes.iter import FileLister, FileOpener, StreamReader
 
-from cachefs.CacheFsContainerIO import CacheFsContainerIO
+from cachefs.CacheFsChunkFile import CacheFsChunkFile
 from cachefs.CacheFsChunkIO import CacheFsChunkIO
 from cachefs.CacheFsTarfile import CacheFsTarfile
 
@@ -241,11 +241,23 @@ import matplotlib.pyplot as plt
 start = time.time()
 list = [path3, path4]
 tar1 = CacheFsChunkIO(path1, list)
+print(tar1)
+print("tar: ", tar1.members)
 # global_members = tar1.members
 map = {path1:tar1.members}
 print(map)
 # print(tar1)
-# # image = Image.open(tar1.members.get(path3))
+image = Image.open(tar1.members.get(path3))
+print(image)
+transform = transforms.Compose([
+    transforms.RandomResizedCrop(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+ima = transform(image)
+print(ima)
 # # datas = []
 # # # thread_futures = []
 # plt.figure()
@@ -259,7 +271,7 @@ print(map)
 tar1.close()
 obj = map.get(path1).get(path3)
 fp = open(path1, mode="rb")
-test = CacheFsContainerIO(fp, obj.offset, obj.length)
+test = CacheFsChunkFile(fp, obj.offset, obj.length)
 print(test)
 image = Image.open(test, formats=["JPEG"])
 # plt.imshow(image)
@@ -828,7 +840,7 @@ if __name__ == '__main__':
 # datapipe = FileOpener([path, path1], mode="rb")
 # for i in datapipe:
 #     print(i)
-# datapipe = datapipe.load_from_tar().fork(num_instances=2)
+datapipe = datapipe.load_from_tar().fork(num_instances=2)
 # print("fork: ", datapipe)
 # maps = {path1: datapipe}
 # datapipe = datapipe.filter(filter_fn=lambda filename: path3 in filename[0])
